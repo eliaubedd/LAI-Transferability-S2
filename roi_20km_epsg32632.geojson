@@ -1,0 +1,1 @@
+{"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {"name": "ROI_20km"}, "geometry": {"type": "Polygon", "coordinates": [[[401560.0, 5099050.0], [411560.0, 5099050.0], [411560.0, 5089050.0], [401560.0, 5089050.0], [401560.0, 5099050.0]]]}}]}
