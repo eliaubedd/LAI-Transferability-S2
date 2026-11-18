@@ -1,200 +1,131 @@
-# 🌿 Multispectral LAI Retrieval from Sentinel-2
+
+# Multispectral LAI Retrieval from Sentinel-2
 
 **Temporal Transferability and Physical Consistency Analysis**
 
-## 📌 Overview
+An independent MSc research project investigating how well a data-driven model trained on one Sentinel-2 acquisition can reproduce **SNAP-derived Leaf Area Index (LAI)** and generalize to acquisitions from different seasons and years.
 
-This project investigates the retrieval of **Leaf Area Index (LAI)** from **Sentinel-2 Level-2A surface reflectance** using a data-driven approach, and evaluates its temporal transferability across seasons and years.
+The central research question is not only *how accurately can LAI be approximated within one scene?*, but also *how stable is the learned reflectance–LAI relationship under temporal distribution shifts?*
 
-The objective is twofold:
+## Research objectives
 
-1. Reproduce SNAP Biophysical Processor LAI using a Random Forest model
-2. Analyze the physical limitations and generalization capability of a purely data-driven approach
+- Approximate LAI estimates produced by the **SNAP Sentinel-2 Biophysical Processor** using a Random Forest regressor.
+- Examine the limitations of using NDVI alone, particularly its saturation at high LAI.
+- Evaluate within-scene generalization using a **spatial train–test split** rather than a random pixel split.
+- Measure **cross-season** and **cross-year** transferability without retraining on the target acquisitions.
+- Interpret the resulting errors in relation to vegetation structure, spectral response, and unmodeled acquisition geometry.
 
-The study explicitly examines:
+## Data and reference target
 
-* Spectral sensitivity of red-edge and SWIR bands
-* NDVI saturation at high LAI
-* Spatial autocorrelation bias
-* Cross-season and cross-year transferability
-* Physical consistency between reflectance inputs and radiative-transfer-derived targets
+| Property | Description |
+|---|---|
+| Sensor | Sentinel-2 MSI |
+| Product | Level-2A surface reflectance |
+| Analysis resolution | 20 m |
+| Region of interest (ROI) | 20 km × 20 km, selected from an approximately 110 km × 110 km scene |
+| Training acquisition | July 2021 |
+| Cross-season evaluation | October 2021 |
+| Cross-year evaluation | August 2024 |
+| Prediction target | SNAP Biophysical Processor LAI estimates |
 
----
+### ROI selection
 
-## 🛰 Data
+A vegetation-focused ROI was chosen by computing NDVI at 10 m, spatially averaging it to 200 m, and applying a sliding-window search for the 20 km × 20 km area with the highest mean NDVI. The **same geographic ROI** was used for all three acquisitions.
 
-### Satellite Data
+### Features
 
-* **Sensor:** Sentinel-2 MSI
-* **Processing Level:** L2A (Bottom-Of-Atmosphere Surface Reflectance)
-* **Spatial Resolution:** 20 m (harmonized)
+The model receives seven per-pixel inputs, harmonized to a 20 m grid:
 
-L2A reflectance includes:
-
-* Atmospheric correction (Rayleigh scattering, aerosol correction, absorption)
-* Solar irradiance normalization
-
-Note: BRDF normalization is not explicitly applied.
-
----
-
-## 🌱 Target Variable
-
-* **LAI derived from SNAP Biophysical Processor**
-* Based on radiative transfer modeling (PROSAIL-based inversion)
-
-This introduces an important conceptual aspect:
-
-> The target variable is physically constrained, while the model is purely data-driven.
-
----
-
-## 🧠 Features
-
-The input feature vector includes:
-
-* Red-edge bands (B5, B6, B7)
-* NIR band (B8A)
-* SWIR bands (B11, B12)
-* NDVI
-
-### Physical Motivation
-
-* **Red-edge:** Sensitive to chlorophyll content and canopy structural transitions
-* **NIR:** Driven by internal leaf scattering and canopy multiple scattering
-* **SWIR:** Sensitive to water absorption and vegetation moisture
-* **NDVI:** Proxy for vegetation density (with known saturation limits)
-
-All bands were resampled to 20 m for spatial consistency.
-
----
-
-## 🌍 ROI Selection
-
-Region of Interest (ROI) was selected using NDVI thresholding to isolate vegetated areas and reduce soil contamination.
-
----
-
-## 🤖 Model
-
-* **Algorithm:** Random Forest Regressor
-* **Training strategy:** Spatial train-test split
-* **Evaluation metrics:** R², RMSE
-
-### Why Spatial Split?
-
-To prevent artificial performance inflation due to spatial autocorrelation between neighboring pixels.
-
----
-
-## 🔁 Temporal Transferability
-
-Two transfer scenarios were tested:
-
-* Cross-season transfer
-* Cross-year transfer
-
-The objective was to evaluate how well the learned reflectance–LAI relationship generalizes under:
-
-* Changing solar zenith angle
-* Seasonal canopy structural variations
-* Phenological evolution
-* Inter-annual environmental variability
-
----
-
-## ⚠️ Known Physical Limitations
-
-### NDVI Saturation
-
-At high LAI, NDVI saturates due to:
-
-* Red band absorption plateauing in upper canopy layers
-* Continued NIR multiple scattering
-
-### Geometry Effects
-
-Reflectance depends on:
-
-* Solar zenith angle
-* Viewing geometry
-* Canopy anisotropy (BRDF effects)
-
-These were not explicitly modeled in the ML pipeline.
-
-### Model Nature
-
-The approach is:
-
-* Data-driven
-* Not physically constrained
-* Not BRDF-normalized
-
-This limits physical interpretability and long-term robustness.
-
----
-
-## 🔬 Future Developments
-
-### Hybrid RT–ML Approaches
-
-Combine radiative transfer models and machine learning to improve physical consistency.
-
-### Physically-Informed Modeling
-
-Incorporate:
-
-* Angular geometry
-* Monotonic constraints
-* Energy conservation principles
-* RT-based simulation training
-
----
-
-## 📊 Key Findings
-
-* Random Forest can approximate SNAP-derived LAI with good performance under similar conditions.
-* Temporal transferability degrades under strong seasonal or structural shifts.
-* Purely data-driven models lack intrinsic physical robustness.
-
----
-
-## 🧾 Project Structure
-
-```
-├── data/
-├── preprocessing/
-├── feature_engineering/
-├── modeling/
-├── evaluation/
-└── figures/
+```text
+[B05, B06, B07, B8A, B11, B12, NDVI]
 ```
 
----
+- **B05, B06, B07:** Red-edge bands, sensitive to vegetation characteristics.
+- **B8A:** Narrow near-infrared band, sensitive to canopy structure and scattering.
+- **B11, B12:** Shortwave infrared bands, providing information related to water content.
+- **NDVI:** Widely used vegetation index, but less sensitive in dense-canopy/high-LAI regimes.
 
-## 🧪 Requirements
+The reference LAI rasters were generated using the SNAP Biophysical Processor, whose neural-network retrieval is trained on radiative-transfer simulations. Negative reference LAI values were treated as invalid, and remaining values were restricted to the range **[0, 6]** to reduce retrieval artifacts and outliers.
 
-* Python 3.x
-* rasterio
-* numpy
-* scikit-learn
-* matplotlib
+> **Interpretation note:** SNAP-derived LAI is a model-generated reference, **not an independent field measurement**. The reported metrics quantify agreement with SNAP estimates, not independently established accuracy against in-situ LAI.
 
----
+## Modeling and evaluation
 
-## 📖 Scientific Context
+### 1. Preliminary NDVI-only baseline
 
-This work highlights the tension between:
+A second-degree polynomial regression was used to examine whether NDVI alone could reproduce LAI. It captured the overall trend but systematically underestimated parts of the medium- and high-LAI range, consistent with NDVI saturation.
 
-* Physically-based radiative transfer modeling
-* Purely statistical machine learning approaches
+### 2. Multispectral Random Forest
 
-and explores the benefits and limitations of each within vegetation monitoring applications.
+A **Random Forest regressor** was trained on July 2021 data using the six reflectance bands and NDVI. For within-scene evaluation, spatially separated training and test regions were used to reduce overly optimistic estimates caused by correlations between neighboring pixels.
 
----
+The model-reported feature importances assigned approximately **85%** of the total importance to NDVI. Red-edge and SWIR bands nevertheless contributed complementary information, particularly in denser-canopy conditions.
 
-## 👨‍🎓 Author
+### 3. Temporal transfer experiments
 
-Elia Leonardo Martin
-Master's Degree Project – Remote Sensing
-Grade: 30/30
+The Random Forest trained on **July 2021** was evaluated **without retraining** on:
+
+- **October 2021 (cross-season):** A different phenological period within the same year.
+- **August 2024 (cross-year):** A comparable seasonal period in a different year.
+
+All three experiments used the same ROI and consistent preprocessing. Performance was evaluated with **R², RMSE, and signed bias** against SNAP-derived LAI.
+
+## Quantitative results
+
+| Evaluation scenario | Mean reference LAI | R² ↑ | RMSE ↓ | Bias | Pixels with LAI > 4 |
+|---|---:|---:|---:|---:|---:|
+| **Within-scene spatial split (July 2021)** | 2.84 | **0.997** | **0.047** | -0.006 | 9.8% |
+| **Cross-season (October 2021)** | 1.58 | **0.826** | **0.254** | +0.196 | 0.2% |
+| **Cross-year (August 2024)** | 2.62 | **0.860** | **0.443** | -0.217 | 11.3% |
+
+*Values are reported in the accompanying project study. RMSE and bias are expressed in LAI units. Higher R² and lower RMSE indicate better agreement with the SNAP reference.*
+
+### Reading the results
+
+**Within-scene (July 2021).** The model closely reproduced SNAP-derived LAI in spatially held-out regions of the original acquisition (R² = 0.997; RMSE = 0.047). This demonstrates strong within-scene approximation, not field-validated biophysical accuracy.
+
+**Cross-season (October 2021).** Agreement declined to R² = 0.826 and RMSE = 0.254, with a positive bias (+0.196). The October scene contained substantially less dense vegetation than the training acquisition, and the model tended to overestimate LAI under the shifted canopy conditions.
+
+**Cross-year (August 2024).** R² remained relatively high (0.860), but RMSE increased to 0.443 and bias became negative (-0.217). Errors were particularly pronounced in high-LAI conditions, suggesting sensitivity to changes in canopy structure and the distribution of dense vegetation.
+
+**Why both metrics matter:** Cross-year R² is higher than cross-season R², even though cross-year RMSE is worse. The reference LAI distributions differ across scenes; R² alone therefore does not provide a complete comparison of absolute error or transfer robustness.
+
+## Scientific findings
+
+1. **Strong within-scene fit does not imply temporal robustness.** A model can approximate a reference processor closely in one acquisition while exhibiting substantially larger errors on later acquisitions.
+2. **Temporal shifts introduce systematic error.** The observed bias changes from positive in October 2021 to negative in August 2024, consistent with differences in vegetation conditions and LAI distributions.
+3. **Dense canopies are challenging.** NDVI loses sensitivity at high LAI, and the cross-year analysis revealed particularly poor generalization in the high-LAI regime.
+4. **Reflectance–LAI relationships are physically influenced.** Canopy structure, phenology, illumination, and viewing geometry affect observed reflectance; a purely statistical mapping does not explicitly enforce these relationships.
+
+## Limitations
+
+- **Modeled reference:** The ground truth used for training and testing is SNAP-derived LAI, not in-situ LAI.
+- **Single training acquisition:** Training on July 2021 limits the range of seasonal and interannual conditions represented.
+- **Geographic scope:** The evaluation uses one fixed 20 km × 20 km ROI; broader geographic transfer was not tested.
+- **No explicit BRDF/geometry correction:** Solar and view geometry were not modeled as input variables or explicitly normalized for BRDF effects.
+- **Not a physics-informed model:** Spectral inputs are physically motivated, but the Random Forest has no explicit radiative-transfer or physical constraints.
+
+## Future work
+
+- Train on multiple acquisition dates to improve robustness to temporal distribution shifts.
+- Include acquisition geometry and assess BRDF-aware normalization.
+- Compare against independent field measurements of LAI when available.
+- Investigate hybrid radiative-transfer / machine-learning approaches or physically constrained models.
+- Evaluate generalization across additional locations, vegetation types, and years.
+
+## Tools
+
+Python · rasterio · NumPy · scikit-learn · Matplotlib · ESA SNAP
+
+This repository documents the study and its analyses. Sentinel-2 L2A acquisitions and corresponding SNAP LAI outputs are required to reproduce the numerical experiments; data availability and exact execution steps depend on the repository contents.
+
+## Scientific reference
+
+Weiss, M. & Baret, F. (2016). *S2ToolBox Level 2 Products: Algorithm Theoretical Basis Document (ATBD).* ESA STEP, Issue V1.1.
+
+## Author
+
+**Elia Leonardo Martin**  
+MSc in Artificial Intelligence for Science and Technology  
+Individual academic project — *Physical Sensors and Systems for Environmental Imaging*  
+**Course grade: 30/30**
